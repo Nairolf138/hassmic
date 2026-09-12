@@ -54,7 +54,7 @@ var react_native_1 = require("react-native");
 var main_1 = require("./app/main");
 var backgroundtask_1 = require("./app/backgroundtask");
 var app_json_1 = require("./app.json");
-var react_native_fast_encoder_1 = require("react-native-fast-encoder");
+var text_encoding_1 = require("text-encoding");
 // ---- begin textencoder polyfills ----
 // from https://gist.github.com/aretrace/bcb0777c2cfd2b0b1d9dcfb805fe2838
 if (react_native_1.Platform.OS !== 'web') {
@@ -74,7 +74,7 @@ if (react_native_1.Platform.OS !== 'web') {
                     return [4 /*yield*/, Promise.resolve().then(function () { return require('react-native-fetch-api'); })];
                 case 4:
                     _c = _d.sent(), fetch = _c.fetch, Headers = _c.Headers, Request = _c.Request, Response = _c.Response;
-                    polyfillGlobal('TextDecoder', function () { return react_native_fast_encoder_1.default; });
+                    polyfillGlobal('TextDecoder', function () { return text_encoding_1.TextDecoder; });
                     polyfillGlobal('ReadableStream', function () { return ReadableStream; });
                     polyfillGlobal('TransformStream', function () { return TransformStream; });
                     polyfillGlobal('TextEncoderStream', function () { return TextEncoderStream; });
