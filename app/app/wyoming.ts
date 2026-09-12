@@ -551,6 +551,14 @@ class ClientHandler {
           });
           this.writePkt(resp);
           this._pipelineRunning = true;
+          // Home Assistant performs the wake-word detection on the server.
+          // Select this socket and stream microphone audio immediately; waiting
+          // for `detect` would deadlock because HA cannot detect a wake word
+          // before it receives audio from the satellite.
+          DeviceEventEmitter.emit('wyoming-pipeline-start', {
+            socket_id: this._socket?._id,
+          });
+          this.setMicAudioStreaming(true);
           break;
 
         case 'pause-satellite':
