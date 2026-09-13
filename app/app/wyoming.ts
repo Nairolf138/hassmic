@@ -672,13 +672,25 @@ class ClientHandler {
             this._activePCMStream = null;
           }
 
-          // If we have a timestamp, wait for the audio to finish playing before
-          // sending the played message. Otherwise, just send it after 0.5s.
-          // KNOWN ISSUE: Wyoming in HA does not send timestamp for annoucements.
+          // Wait briefly for the native PCM queue to drain before acknowledging
+          // playback. Some Wyoming versions omit timestamp; others provide an
+          // absolute timestamp rather than a duration. Never use an unbounded
+          // value here, otherwise the microphone never gets re-enabled after
+          // the first response.
           let waitTime = 500;
-          if (audioDuration) {
-            waitTime =
-              audioDuration * 1000 - (Date.now() - this._audioStartTimestamp);
+          if (
+            typeof audioDuration === 'number' &&
+            Number.isFinite(audioDuration) &&
+            audioDuration > 0 &&
+            audioDuration <= 60
+          ) {
+            const elapsed = this._audioStartTimestamp
+              ? Date.now() - this._audioStartTimestamp
+              : 0;
+            waitTime = Math.max(
+              0,
+              Math.min(5000, audioDuration * 1000 - elapsed),
+            );
           }
           setTimeout(() => {
             Logger.info(
