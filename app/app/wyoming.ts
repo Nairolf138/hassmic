@@ -335,6 +335,7 @@ class ClientHandler {
   private _pingEvent: number = 0;
   private _streamEnableTimer: ReturnType<typeof setTimeout> | null = null;
   streamAudio: boolean = false;
+  private _streamingAnnounced = false;
 
   constructor(socket: TcpSocket.Socket) {
     this._socket = socket;
@@ -450,11 +451,22 @@ class ClientHandler {
   };
 
   setMicAudioStreaming = (enable: boolean) => {
+    if (enable === this.streamAudio) {
+      return;
+    }
     if (enable) {
       this._streamEnableTimer = null;
     }
     Logger.info(`${enable ? 'Enabling' : 'Disabling'} audio streaming`);
     this.streamAudio = enable;
+    if (this._streamingAnnounced !== enable) {
+      this._streamingAnnounced = enable;
+      this.writePkt(
+        new WyomingPacket({
+          type: enable ? 'streaming-started' : 'streaming-stopped',
+        }),
+      );
+    }
   };
 
   private _cancelStreamEnable = () => {
@@ -592,19 +604,31 @@ class ClientHandler {
           break;
 
         case 'detection':
+          Logger.info(
+            `Wake word detected: ${p.getProp('name') || 'unknown'}; playing listen cue`,
+          );
+          // Keep the microphone stream alive while giving local feedback. The
+          // cue is intentionally generated on-device, not through TTS.
+          PCMPlayer.playTone().catch((e: any) => {
+            Logger.warning(`Unable to play wake cue: ${e}`);
+          });
           break;
 
         case 'transcribe':
           break;
 
         case 'voice-started':
-          // Voice detection stopped, stop stremaing audio
+          // The server VAD has started the speech portion of the pipeline.
           this.setMicAudioStreaming(true);
           break;
 
         case 'voice-stopped':
-          // Voice detection stopped, stop stremaing audio
+          // Tell Home Assistant that the current utterance is complete. Without
+          // audio-stop HA cannot finish the pipeline and cannot restart it with
+          // the same conversation context for a follow-up answer.
+          Logger.info('Voice stopped; sending audio-stop');
           this.setMicAudioStreaming(false);
+          this.writePkt(new WyomingPacket({type: 'audio-stop'}));
           break;
 
         case 'audio-start':

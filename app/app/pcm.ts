@@ -52,6 +52,49 @@ class PCMPlayer_ {
     PcmAudio.end(id);
   };
 
+  // Play a short local cue without involving Home Assistant TTS.
+  // This is used for wake-word feedback so the user knows that recording
+  // has started before the Assist response is generated.
+  playTone = async (
+    frequency = 880,
+    durationMs = 110,
+    volume = 0.28,
+  ) => {
+    const sampleRate = 22050;
+    const sampleCount = Math.max(
+      1,
+      Math.round((sampleRate * durationMs) / 1000),
+    );
+    const samples = new Uint8Array(sampleCount * 2);
+    const view = new DataView(samples.buffer);
+    const amplitude = Math.max(0, Math.min(1, volume)) * 32767;
+    for (let i = 0; i < sampleCount; i++) {
+      const envelope = Math.min(
+        1,
+        i / Math.max(1, sampleRate * 0.008),
+        (sampleCount - i) / Math.max(1, sampleRate * 0.018),
+      );
+      const value = Math.round(
+        Math.sin((2 * Math.PI * frequency * i) / sampleRate) *
+          amplitude *
+          envelope,
+      );
+      view.setInt16(i * 2, value, true);
+    }
+
+    const streamId = await this.startAudioStream({
+      encoding: '16bit',
+      usage: 'notification',
+      sampleRate,
+      channels: 1,
+      mode: 'streaming',
+      gain: 1,
+    });
+    await this.writeAudioStream(streamId, samples);
+    await new Promise(resolve => setTimeout(resolve, durationMs));
+    await this.stopAudioStream(streamId);
+  };
+
   setGain = async (id: number, gain: number) => {
     if (!id) {
       Logger.info("no audio stream");
