@@ -14,11 +14,13 @@ import {
   MediaPlayerId,
   Ping,
   HassmicCommand,
+  WyomingEvent,
 } from './proto/hassmic';
 
 const Logger = new HMLogger('cheyenne.ts');
 
 type CallbackType<T> = ((s: T) => void) | null;
+type SatelliteCommandCallback = (event: WyomingEvent) => void;
 
 // "Cheyenne" protocol server
 class CheyenneServer {
@@ -33,12 +35,17 @@ class CheyenneServer {
 
   // settable callback for connection state
   private _connectionStateCallback: CallbackType<boolean> = null;
+  private _satelliteCommandCallback: SatelliteCommandCallback = () => {};
 
   // Whether the mic should be muted
   private _mic_muted: boolean = false;
 
   setConnectionStateCallback = (cb: CallbackType<boolean>) => {
     this._connectionStateCallback = cb;
+  };
+
+  setSatelliteCommandCallback = (cb: SatelliteCommandCallback) => {
+    this._satelliteCommandCallback = cb;
   };
 
   private _setConnectionState = (s: boolean) => {
@@ -69,6 +76,23 @@ class CheyenneServer {
         Logger.error(`Error sending message: ${e.toString()}`);
       }
     }
+  };
+
+  /** Send a correlated satellite event without logging PCM payloads. */
+  sendSatelliteEvent = (event: WyomingEvent) => {
+    this.sendMessage(
+      ClientMessage.create({
+        msg: {
+          oneofKind: 'clientEvent',
+          clientEvent: {
+            event: {
+              oneofKind: 'wyomingEvent',
+              wyomingEvent: event,
+            },
+          },
+        },
+      }),
+    );
   };
 
   sendInfo = (uuid: string) => {
@@ -224,6 +248,9 @@ class CheyenneServer {
             `Got "${m.msg.oneofKind}" HassmicCommand; passing it to native code`,
           );
           NativeManager.handleHassmicCommand(m);
+          break;
+        case 'wyomingEvent':
+          this._satelliteCommandCallback(m.msg.wyomingEvent);
           break;
         default:
           Logger.warning(`Got unknown message type '${m.msg.oneofKind}'`);

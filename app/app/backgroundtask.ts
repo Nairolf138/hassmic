@@ -8,6 +8,7 @@ import {PermissionsAndroid} from 'react-native';
 import {Settings} from './settings';
 import {STORAGE_KEY_RUN_BACKGROUND_TASK, AUDIO_INFO} from './constants';
 import {WyomingServer} from './wyoming';
+import {SatelliteTransport} from './satellite_protocol';
 import {ZeroconfManager} from './zeroconf';
 
 // note - patched version from
@@ -37,6 +38,10 @@ export enum TaskState {
 }
 
 class BackgroundTaskManager_ {
+  private readonly satelliteTransport = new SatelliteTransport(event =>
+    CheyenneSocket.sendSatelliteEvent(event),
+  );
+
   // track the task state
   private taskState: TaskState = TaskState.UNKNOWN;
 
@@ -143,6 +148,26 @@ class BackgroundTaskManager_ {
     });
     // native event listeners
     await CheyenneSocket.startServer();
+    CheyenneSocket.setSatelliteCommandCallback(event => {
+      if (!event.turnId) {
+        Logger.warning('Ignoring uncorrelated satellite command');
+        return;
+      }
+
+      switch (event.event.oneofKind) {
+        case 'runPipeline':
+          this.satelliteTransport.begin(event.turnId);
+          break;
+        case 'pauseSatellite':
+        case 'audioStop':
+        case 'error':
+          this.satelliteTransport.end(event.turnId);
+          break;
+        default:
+          // Other events are handled by the later playback/pipeline bridge.
+          break;
+      }
+    });
     Logger.info('Started cheyenne server');
 
     await WyomingServer.startServer();
@@ -174,6 +199,7 @@ class BackgroundTaskManager_ {
       }
       const chunk = Buffer.from(data, 'base64');
       WyomingServer.sendAudioData(chunk);
+      this.satelliteTransport.sendMicrophoneAudio(chunk);
     });
     LiveAudioStream.start();
     Logger.info('stream started');
