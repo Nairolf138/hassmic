@@ -102,8 +102,12 @@ class CheyenneServer {
 
   // sends a ping every 10 seconds while the socket is open.
   startPing = () => {
+    const socket = this._sock;
     return (async () => {
-      while (this._sock) {
+      // Bind the heartbeat to the socket that started it. When a client
+      // reconnects, the old loop must stop instead of writing heartbeats on
+      // behalf of the new connection.
+      while (this._sock === socket && socket) {
         try {
           this.sendMessage(
             ClientMessage.create({
@@ -162,7 +166,10 @@ class CheyenneServer {
       Logger.info(`Got connection`);
       if (this._sock == null) {
         this._sock = socket;
-        socket.setTimeout(60e3);
+        // Heartbeats are sent by the app every 10 seconds. Home Assistant is
+        // not required to answer each heartbeat, so an inbound-idle timeout
+        // would incorrectly destroy a healthy control connection.
+        socket.setTimeout(0);
         this._setConnectionState(true);
         this.sendInfo(this._uuid);
         this.startPing();
