@@ -139,6 +139,12 @@ class WyomingEvent(betterproto.Message):
     """The raw json of the message"""
 
     payload: bytes = betterproto.bytes_field(2)
+    turn_id: str = betterproto.string_field(37)
+    """
+    Correlates microphone, playback, and acknowledgement events to one
+     satellite turn. Empty means legacy/un-correlated transport.
+    """
+
     describe: "WyomingEventDescribe" = betterproto.message_field(3, group="event")
     info: "WyomingEventInfo" = betterproto.message_field(4, group="event")
     ping: "WyomingEventPing" = betterproto.message_field(5, group="event")
@@ -665,5 +671,10 @@ class HassmicCommand(betterproto.Message):
 
     set_mic_gain: float = betterproto.float_field(6, group="msg")
     """Set the microphone gain"""
+
+    wyoming_event: "WyomingEvent" = betterproto.message_field(8, group="msg")
+    """
+    Send a correlated satellite event over the HassMic control transport.
+    """
 
     internal: bool = betterproto.bool_field(7)

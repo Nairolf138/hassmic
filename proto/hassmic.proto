@@ -350,6 +350,10 @@ message WyomingEvent {
 
   message Other {};
 
+  // Correlates microphone, playback, and acknowledgement events to one
+  // satellite turn. Empty means legacy/un-correlated transport.
+  string turn_id = 37;
+
   oneof event {
     Describe describe = 3;
     Info info = 4;
@@ -461,6 +465,9 @@ message HassmicCommand {
 
     // Set the microphone gain
     float set_mic_gain = 6;
+
+    // Send a correlated satellite event over the HassMic control transport.
+    WyomingEvent wyoming_event = 8;
   }
   bool internal = 7;
 }

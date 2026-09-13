@@ -159,6 +159,13 @@ export interface WyomingEvent {
      */
     payload: Uint8Array;
     /**
+     * Correlates microphone, playback, and acknowledgement events to one
+     * satellite turn. Empty means legacy/un-correlated transport.
+     *
+     * @generated from protobuf field: string turn_id = 37;
+     */
+    turnId: string;
+    /**
      * @generated from protobuf oneof: event
      */
     event: {
@@ -1408,6 +1415,14 @@ export interface HassmicCommand {
          */
         setMicGain: number;
     } | {
+        oneofKind: "wyomingEvent";
+        /**
+         * Send a correlated satellite event over the HassMic control transport.
+         *
+         * @generated from protobuf field: hassmic.WyomingEvent wyoming_event = 8;
+         */
+        wyomingEvent: WyomingEvent;
+    } | {
         oneofKind: undefined;
     };
     /**
@@ -1907,6 +1922,7 @@ class WyomingEvent$Type extends MessageType<WyomingEvent> {
         super("hassmic.WyomingEvent", [
             { no: 1, name: "raw_json", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 2, name: "payload", kind: "scalar", T: 12 /*ScalarType.BYTES*/ },
+            { no: 37, name: "turn_id", kind: "scalar", T: 9 /*ScalarType.STRING*/ },
             { no: 3, name: "describe", kind: "message", oneof: "event", T: () => WyomingEvent_Describe },
             { no: 4, name: "info", kind: "message", oneof: "event", T: () => WyomingEvent_Info },
             { no: 5, name: "ping", kind: "message", oneof: "event", T: () => WyomingEvent_Ping },
@@ -1947,6 +1963,7 @@ class WyomingEvent$Type extends MessageType<WyomingEvent> {
         const message = globalThis.Object.create((this.messagePrototype!));
         message.rawJson = "";
         message.payload = new Uint8Array(0);
+        message.turnId = "";
         message.event = { oneofKind: undefined };
         if (value !== undefined)
             reflectionMergePartial<WyomingEvent>(this, message, value);
@@ -1962,6 +1979,9 @@ class WyomingEvent$Type extends MessageType<WyomingEvent> {
                     break;
                 case /* bytes payload */ 2:
                     message.payload = reader.bytes();
+                    break;
+                case /* string turn_id */ 37:
+                    message.turnId = reader.string();
                     break;
                 case /* hassmic.WyomingEvent.Describe describe */ 3:
                     message.event = {
@@ -2185,6 +2205,9 @@ class WyomingEvent$Type extends MessageType<WyomingEvent> {
         /* bytes payload = 2; */
         if (message.payload.length)
             writer.tag(2, WireType.LengthDelimited).bytes(message.payload);
+        /* string turn_id = 37; */
+        if (message.turnId !== "")
+            writer.tag(37, WireType.LengthDelimited).string(message.turnId);
         /* hassmic.WyomingEvent.Describe describe = 3; */
         if (message.event.oneofKind === "describe")
             WyomingEvent_Describe.internalBinaryWrite(message.event.describe, writer.tag(3, WireType.LengthDelimited).fork(), options).join();
@@ -5747,6 +5770,7 @@ class HassmicCommand$Type extends MessageType<HassmicCommand> {
             { no: 4, name: "set_player_volume", kind: "message", oneof: "msg", T: () => MediaPlayerVolume },
             { no: 5, name: "command", kind: "message", oneof: "msg", T: () => MediaPlayerCommand },
             { no: 6, name: "set_mic_gain", kind: "scalar", oneof: "msg", T: 2 /*ScalarType.FLOAT*/ },
+            { no: 8, name: "wyoming_event", kind: "message", oneof: "msg", T: () => WyomingEvent },
             { no: 7, name: "internal", kind: "scalar", T: 8 /*ScalarType.BOOL*/ }
         ]);
     }
@@ -5799,6 +5823,12 @@ class HassmicCommand$Type extends MessageType<HassmicCommand> {
                         setMicGain: reader.float()
                     };
                     break;
+                case /* hassmic.WyomingEvent wyoming_event */ 8:
+                    message.msg = {
+                        oneofKind: "wyomingEvent",
+                        wyomingEvent: WyomingEvent.internalBinaryRead(reader, reader.uint32(), options, (message.msg as any).wyomingEvent)
+                    };
+                    break;
                 case /* bool internal */ 7:
                     message.internal = reader.bool();
                     break;
@@ -5832,6 +5862,9 @@ class HassmicCommand$Type extends MessageType<HassmicCommand> {
         /* float set_mic_gain = 6; */
         if (message.msg.oneofKind === "setMicGain")
             writer.tag(6, WireType.Bit32).float(message.msg.setMicGain);
+        /* hassmic.WyomingEvent wyoming_event = 8; */
+        if (message.msg.oneofKind === "wyomingEvent")
+            WyomingEvent.internalBinaryWrite(message.msg.wyomingEvent, writer.tag(8, WireType.LengthDelimited).fork(), options).join();
         /* bool internal = 7; */
         if (message.internal !== false)
             writer.tag(7, WireType.Varint).bool(message.internal);
