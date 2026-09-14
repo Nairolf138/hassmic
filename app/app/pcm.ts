@@ -9,19 +9,27 @@ import { Buffer } from "buffer";
 const Logger = new HMLogger("pcm.ts");
 
 class PCMPlayer_ {
+  private completionResolvers = new Map<number, () => void>();
+
   // Based on examples at
   // https://github.com/clshortfuse/react-native-pcm-audio
   startAudioStream = (pcmOptions: any): Promise<number> => {
     return new Promise<number>((resolve, reject) => {
+      let sessionId: number | null = null;
       var callback = (event: string, data: any) => {
         switch (event) {
           case "onSessionId":
             /* start playing audio immediately */
             Logger.info(`Got audio session id: ${data}`);
+            sessionId = data;
             resolve(data);
             break;
           case "onAudioDone":
             Logger.info(`Audio session done: ${data}`);
+            if (sessionId !== null) {
+              this.completionResolvers.get(sessionId)?.();
+              this.completionResolvers.delete(sessionId);
+            }
             break;
         }
       };
@@ -48,8 +56,18 @@ class PCMPlayer_ {
   stopAudioStream = async (id: number) => {
     if (!id) {
       Logger.info("no audio stream");
+      return;
     }
+
+    const completed = new Promise<void>(resolve => {
+      this.completionResolvers.set(id, resolve);
+    });
     PcmAudio.end(id);
+    await Promise.race([
+      completed,
+      new Promise<void>(resolve => setTimeout(resolve, 8000)),
+    ]);
+    this.completionResolvers.delete(id);
   };
 
   // Play a short local cue without involving Home Assistant TTS.
