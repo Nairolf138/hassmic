@@ -9,6 +9,8 @@ import {Settings} from './settings';
 import {STORAGE_KEY_RUN_BACKGROUND_TASK, AUDIO_INFO} from './constants';
 import {WyomingServer} from './wyoming';
 import {SatelliteTransport} from './satellite_protocol';
+import {PCMPlayer} from './pcm';
+import {WyomingEvent} from './proto/hassmic';
 import {ZeroconfManager} from './zeroconf';
 
 // note - patched version from
@@ -41,6 +43,59 @@ class BackgroundTaskManager_ {
   private readonly satelliteTransport = new SatelliteTransport(event =>
     CheyenneSocket.sendSatelliteEvent(event),
   );
+  private satellitePlaybackId: number | null = null;
+  private satellitePlaybackTurnId: string | null = null;
+
+  private handleSatellitePlayback = async (event: WyomingEvent) => {
+    if (!event.turnId) {
+      return;
+    }
+
+    if (this.satellitePlaybackTurnId && this.satellitePlaybackTurnId !== event.turnId) {
+      return;
+    }
+
+    switch (event.event.oneofKind) {
+      case 'audioStart':
+        this.satellitePlaybackTurnId = event.turnId;
+        this.satellitePlaybackId = await PCMPlayer.startAudioStream({
+          encoding: '16bit',
+          usage: 'announce',
+          sampleRate: event.event.audioStart.rate || 16000,
+          channels: event.event.audioStart.channels || 1,
+          mode: 'streaming',
+          gain: 1,
+        });
+        break;
+      case 'audioChunk':
+        if (this.satellitePlaybackId !== null) {
+          await PCMPlayer.writeAudioStream(
+            this.satellitePlaybackId,
+            event.payload,
+          );
+        }
+        break;
+      case 'audioStop':
+        if (this.satellitePlaybackId !== null) {
+          const id = this.satellitePlaybackId;
+          this.satellitePlaybackId = null;
+          await PCMPlayer.stopAudioStream(id);
+        }
+        CheyenneSocket.sendSatelliteEvent(
+          WyomingEvent.create({
+            turnId: event.turnId,
+            event: {oneofKind: 'played', played: {}},
+          }),
+        );
+        this.satellitePlaybackTurnId = null;
+        break;
+      case 'pauseSatellite':
+      case 'error':
+        this.satellitePlaybackId = null;
+        this.satellitePlaybackTurnId = null;
+        break;
+    }
+  };
 
   // track the task state
   private taskState: TaskState = TaskState.UNKNOWN;
@@ -153,6 +208,10 @@ class BackgroundTaskManager_ {
         Logger.warning('Ignoring uncorrelated satellite command');
         return;
       }
+
+      void this.handleSatellitePlayback(event).catch(error =>
+        Logger.error(`Satellite playback failed: ${error}`),
+      );
 
       switch (event.event.oneofKind) {
         case 'runPipeline':

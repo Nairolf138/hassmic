@@ -24,6 +24,7 @@ from .proto.hassmic import (
     ClientEvent,
     ClientInfo,
     ClientMessage,
+    HassmicCommand,
     LogSeverity,
     SavedSettings,
     betterproto,
@@ -90,8 +91,14 @@ class HassMic:
         self._connection_manager.run()
 
     def register_entity(self, ent: Entity):
-        """Add an entity to the list of entities generated for this hassmic."""
+        """Add a HassMic entity to the runtime dispatch list."""
         self._entities.append(ent)
+
+    def send_wyoming_event(self, event) -> None:
+        """Queue one server-to-satellite Wyoming event over Cheyenne."""
+        self._connection_manager.send_enqueue(
+            HassmicCommand(wyoming_event=event, internal=False)
+        )
 
     def _handle_connection_state_change(self, new_state: bool):
         """Handle a state change from the connection manager."""
