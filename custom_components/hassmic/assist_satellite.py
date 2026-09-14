@@ -9,6 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .const import NATIVE_ASSIST_HOST
 from .native_satellite import HassMicNativeSatellite
 
 
@@ -18,5 +19,8 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Prepare the native satellite entity without enabling it yet."""
+    if config_entry.data.get("hostname") != NATIVE_ASSIST_HOST:
+        return
+
     satellite = HassMicNativeSatellite(hass, config_entry)
     async_add_entities([satellite])

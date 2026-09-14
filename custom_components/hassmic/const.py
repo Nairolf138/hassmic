@@ -11,9 +11,11 @@ PLATFORMS = [
     Platform.SWITCH,
     Platform.MEDIA_PLAYER,
     Platform.NUMBER,
+    Platform.ASSIST_SATELLITE,
 ]
 
-# Possible states for sensors
+NATIVE_ASSIST_HOST = "192.168.1.156"
+
 STATE_LISTENING = "listening"
 STATE_DETECTED = "detected"
 STATE_ERROR = "error"
