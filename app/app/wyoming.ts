@@ -339,7 +339,9 @@ class ClientHandler {
 
   constructor(socket: TcpSocket.Socket) {
     this._socket = socket;
-    this._socket.setTimeout(60e3);
+    // Keep the long-lived satellite connection alive; HA heartbeats are the
+    // liveness check, not an inbound-idle socket timeout.
+    this._socket.setTimeout(0);
 
     // Handles incomming data from the socket
     socket.on('data', async (d: Buffer | string) => {
