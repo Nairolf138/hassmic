@@ -11,7 +11,6 @@ PLATFORMS = [
     Platform.SWITCH,
     Platform.MEDIA_PLAYER,
     Platform.NUMBER,
-    Platform.ASSIST_SATELLITE,
 ]
 
 # Possible states for sensors
