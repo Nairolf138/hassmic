@@ -1,6 +1,6 @@
 // allows playing PCM streams
 
-import { NativeModules } from "react-native";
+import { DeviceEventEmitter, NativeModules } from "react-native";
 // fork at https://github.com/jeffc/react-native-pcm-audio
 const { PcmAudio } = NativeModules;
 import { HMLogger } from "./logger";
@@ -10,26 +10,31 @@ const Logger = new HMLogger("pcm.ts");
 
 class PCMPlayer_ {
   private completionResolvers = new Map<number, () => void>();
+  private completedSessions = new Set<number>();
+
+  constructor() {
+    DeviceEventEmitter.addListener("PCMAudio.AudioDone", (sessionId: number) => {
+      Logger.info(`Audio session done: ${sessionId}`);
+      const resolver = this.completionResolvers.get(sessionId);
+      if (resolver) {
+        resolver();
+        this.completionResolvers.delete(sessionId);
+      } else {
+        this.completedSessions.add(sessionId);
+      }
+    });
+  }
 
   // Based on examples at
   // https://github.com/clshortfuse/react-native-pcm-audio
   startAudioStream = (pcmOptions: any): Promise<number> => {
     return new Promise<number>((resolve, reject) => {
-      let sessionId: number | null = null;
       var callback = (event: string, data: any) => {
         switch (event) {
           case "onSessionId":
             /* start playing audio immediately */
             Logger.info(`Got audio session id: ${data}`);
-            sessionId = data;
             resolve(data);
-            break;
-          case "onAudioDone":
-            Logger.info(`Audio session done: ${data}`);
-            if (sessionId !== null) {
-              this.completionResolvers.get(sessionId)?.();
-              this.completionResolvers.delete(sessionId);
-            }
             break;
         }
       };
@@ -59,6 +64,10 @@ class PCMPlayer_ {
       return;
     }
 
+    if (this.completedSessions.delete(id)) {
+      return;
+    }
+
     const completed = new Promise<void>(resolve => {
       this.completionResolvers.set(id, resolve);
     });
@@ -68,6 +77,7 @@ class PCMPlayer_ {
       new Promise<void>(resolve => setTimeout(resolve, 8000)),
     ]);
     this.completionResolvers.delete(id);
+    this.completedSessions.delete(id);
   };
 
   // Play a short local cue without involving Home Assistant TTS.
