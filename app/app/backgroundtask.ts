@@ -45,6 +45,7 @@ class BackgroundTaskManager_ {
   );
   private satellitePlaybackId: number | null = null;
   private satellitePlaybackTurnId: string | null = null;
+  private nativeTransportActive = false;
 
   private handleSatellitePlayback = async (event: WyomingEvent) => {
     if (!event.turnId) {
@@ -88,6 +89,9 @@ class BackgroundTaskManager_ {
           }),
         );
         this.satellitePlaybackTurnId = null;
+        break;
+      case 'detection':
+        await PCMPlayer.playTone();
         break;
       case 'pauseSatellite':
       case 'error':
@@ -215,9 +219,11 @@ class BackgroundTaskManager_ {
 
       switch (event.event.oneofKind) {
         case 'runPipeline':
+          this.nativeTransportActive = true;
           this.satelliteTransport.begin(event.turnId);
           break;
         case 'pauseSatellite':
+          this.nativeTransportActive = false;
         case 'audioStop':
         case 'error':
           this.satelliteTransport.end(event.turnId);
@@ -257,7 +263,9 @@ class BackgroundTaskManager_ {
         return;
       }
       const chunk = Buffer.from(data, 'base64');
-      WyomingServer.sendAudioData(chunk);
+      if (!this.nativeTransportActive) {
+        WyomingServer.sendAudioData(chunk);
+      }
       this.satelliteTransport.sendMicrophoneAudio(chunk);
     });
     LiveAudioStream.start();

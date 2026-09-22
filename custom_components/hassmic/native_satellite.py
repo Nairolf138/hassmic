@@ -32,6 +32,7 @@ from .proto.hassmic import (
     WyomingEventAudioChunk,
     WyomingEventAudioStart,
     WyomingEventAudioStop,
+    WyomingEventDetection,
     WyomingEventRunPipeline,
 )
 
@@ -178,6 +179,17 @@ class HassMicNativeSatellite(AssistSatelliteEntity):
     @callback
     def on_pipeline_event(self, event: PipelineEvent) -> None:
         """Stream TTS and keep completion tied to Android playback."""
+        if event.type.name == "WAKE_WORD_END":
+            wake_word = "okay_nabu"
+            if event.data:
+                output = event.data.get("wake_word_output") or {}
+                wake_word = output.get("wake_word") or output.get("name") or wake_word
+            self._hassmic.send_wyoming_event(
+                WyomingEvent(
+                    turn_id=self._turn_id or "",
+                    detection=WyomingEventDetection(name=wake_word),
+                )
+            )
         if event.type.name == "INTENT_END" and event.data:
             intent = event.data.get("intent_output") or {}
             self._continue_conversation = bool(
