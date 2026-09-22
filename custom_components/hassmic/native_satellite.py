@@ -56,6 +56,7 @@ class HassMicNativeSatellite(AssistSatelliteEntity):
         self._stopped = False
         self._continue_conversation = False
         self._played_event: asyncio.Event | None = None
+        self._tts_task: asyncio.Task[None] | None = None
 
     async def async_added_to_hass(self) -> None:
         """Start the native pipeline after entity registration."""
@@ -106,6 +107,11 @@ class HassMicNativeSatellite(AssistSatelliteEntity):
         self._turn_id = None
         self._continue_conversation = False
         self._played_event = None
+        if self._tts_task is not None:
+            self._tts_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._tts_task
+            self._tts_task = None
 
     async def _pipeline_loop(self) -> None:
         while not self._stopped:
@@ -133,6 +139,8 @@ class HassMicNativeSatellite(AssistSatelliteEntity):
                     start_stage=pipeline_stage,
                     end_stage=PipelineStage.TTS,
                 )
+                if self._tts_task is not None:
+                    await self._tts_task
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -180,7 +188,7 @@ class HassMicNativeSatellite(AssistSatelliteEntity):
             if output and (token := output.get("token")) and self._turn_id:
                 stream = tts.async_get_stream(self.hass, token)
                 if stream is not None:
-                    self.config_entry.async_create_background_task(
+                    self._tts_task = self.config_entry.async_create_background_task(
                         self.hass,
                         self._stream_tts(stream, self._turn_id),
                         f"{self.entity_id}_tts",
