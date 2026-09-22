@@ -198,14 +198,28 @@ class HassMicNativeSatellite(AssistSatelliteEntity):
         if event.type.name == "TTS_END" and event.data:
             output = event.data.get("tts_output")
             if output and (token := output.get("token")) and self._turn_id:
-                stream = tts.async_get_stream(self.hass, token)
-                if stream is not None:
-                    self._tts_task = self.config_entry.async_create_background_task(
-                        self.hass,
-                        self._stream_tts(stream, self._turn_id),
-                        f"{self.entity_id}_tts",
-                    )
+                self._tts_task = self.config_entry.async_create_background_task(
+                    self.hass,
+                    self._stream_tts_when_ready(token, self._turn_id),
+                    f"{self.entity_id}_tts",
+                )
         _LOGGER.debug("HassMic native pipeline event: %s", event.type)
+
+    async def _stream_tts_when_ready(self, token: str, turn_id: str) -> None:
+        """Wait briefly for the Assist TTS stream to become available."""
+        stream = None
+        for _ in range(20):
+            stream = tts.async_get_stream(self.hass, token)
+            if stream is not None:
+                break
+            await asyncio.sleep(0.1)
+
+        if stream is None:
+            _LOGGER.error("Assist TTS stream unavailable for turn %s", turn_id)
+            self.tts_response_finished()
+            return
+
+        await self._stream_tts(stream, turn_id)
 
     async def _stream_tts(self, stream, turn_id: str) -> None:
         """Send a PCM WAV TTS stream and wait for the Android played event."""
