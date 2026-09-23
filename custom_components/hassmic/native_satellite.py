@@ -119,8 +119,8 @@ class HassMicNativeSatellite(AssistSatelliteEntity):
             turn_id = uuid4().hex
             follow_up = self._continue_conversation
             self._continue_conversation = False
-            start_stage = "asr" if follow_up else "wake"
-            pipeline_stage = PipelineStage.ASR if follow_up else PipelineStage.WAKE_WORD
+            start_stage = "stt" if follow_up else "wake"
+            pipeline_stage = PipelineStage.STT if follow_up else PipelineStage.WAKE_WORD
             self._turn_id = turn_id
             self._audio_queue = asyncio.Queue()
             self._played_event = asyncio.Event()
